@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>漢字クラフト V3.1 サウンド版</title>
+<style>
+  :root { --bg:#f5f1e8; --ink:#222; --card:#fffdf8; --accent:#4b7bec; --ok:#1f9d55; --bad:#d64545; --muted:#777; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif; background:linear-gradient(#dff4ff,#f5f1e8 45%); color:var(--ink); min-height:100vh; }
+  .app { max-width:760px; margin:auto; padding:16px; }
+  h1,h2,h3,p { margin-top:0; }
+  .card { background:var(--card); border-radius:18px; padding:18px; box-shadow:0 8px 24px rgba(0,0,0,.08); margin:12px 0; }
+  .hero { text-align:center; padding:24px 18px; }
+  .hero h1 { font-size:32px; margin-bottom:8px; }
+  .sub { color:var(--muted); font-size:14px; }
+  .grade-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  button { border:0; border-radius:14px; padding:14px 16px; font-size:17px; font-weight:700; background:#e8edf7; color:#222; }
+  button.primary { background:var(--accent); color:white; }
+  button.good { background:var(--ok); color:white; }
+  button.warn { background:#ef8d22; color:white; }
+  button.danger { background:var(--bad); color:white; }
+  button:disabled { opacity:.45; }
+  .hidden { display:none !important; }
+  .topbar { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+  .badge { background:#eef3ff; padding:7px 10px; border-radius:999px; font-size:13px; font-weight:700; }
+  .prompt { text-align:center; font-size:34px; font-weight:800; letter-spacing:.08em; margin:12px 0; }
+  .meaning { text-align:center; font-size:15px; color:var(--muted); min-height:22px; }
+  .canvas-wrap { display:grid; gap:12px; margin:16px 0; }
+  .kanji-cell { position:relative; aspect-ratio:1; background:white; border:3px solid #333; border-radius:12px; overflow:hidden; }
+  .kanji-cell::before,.kanji-cell::after { content:""; position:absolute; background:#ddd; z-index:0; }
+  .kanji-cell::before { left:50%; top:0; width:1px; height:100%; }
+  .kanji-cell::after { top:50%; left:0; width:100%; height:1px; }
+  canvas { position:relative; z-index:1; width:100%; height:100%; touch-action:none; display:block; }
+  .ghost { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:min(30vw,160px); color:rgba(30,30,30,.12); z-index:0; font-weight:700; pointer-events:none; }
+  .controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .feedback { text-align:center; min-height:52px; font-size:18px; font-weight:800; padding:8px; }
+  .progress { height:14px; background:#e6e6e6; border-radius:999px; overflow:hidden; }
+  .progress > div { height:100%; width:0%; background:var(--accent); transition:.3s; }
+  .road { display:flex; gap:4px; margin-top:10px; }
+  .road span { flex:1; height:12px; background:#ddd; border-radius:8px; }
+  .road span.done { background:#59a14f; }
+  .inventory { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; text-align:center; }
+  .inv { padding:10px 6px; border-radius:12px; background:#f1f4f7; font-size:13px; }
+  .inv b { display:block; font-size:21px; }
+  .build { min-height:180px; display:flex; align-items:end; justify-content:center; gap:6px; flex-wrap:wrap; padding:14px; background:linear-gradient(#ccecff 60%,#98c66d 60%); border-radius:16px; overflow:hidden; }
+  .block { width:34px; height:34px; border:2px solid rgba(0,0,0,.2); border-radius:4px; display:inline-block; }
+  .wood { background:#b9844a; } .stone{background:#989898;} .iron{background:#c9d1d9;} .gem{background:#76d7c4;}
+  .small { font-size:13px; color:var(--muted); }
+  .section-title { font-size:19px; margin-bottom:10px; }
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stat { background:#f3f5f7; padding:12px; border-radius:12px; text-align:center; }
+  .stat b { font-size:24px; display:block; }
+  .footer-note { font-size:12px; color:#666; line-height:1.5; }
+
+  .sound-panel { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+  .sound-toggle { padding:10px 8px; font-size:14px; border:2px solid #d7deea; background:#f7f9fc; }
+  .sound-toggle.on { background:#e8f5e9; border-color:#92c99a; }
+  .timer-badge.urgent { animation:pulse .7s infinite alternate; }
+  @keyframes pulse { from{transform:scale(1)} to{transform:scale(1.07)} }
+  @media (min-width:540px){ .canvas-wrap{grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+<div class="app">
+  <section id="home" class="card hero">
+    <h1>🧱 漢字クラフト V3.1</h1>
+    <p>ひらがなを見て、指で漢字を書いて進もう。</p>
+    <p class="sub">正しい形・画数・書き順をブラウザ内で判定。正解すると素材ゲット！</p>
+    <div class="grade-grid">
+      <button class="primary" onclick="startGame(4)">小学4年生</button>
+      <button class="primary" onclick="startGame(6)">小学6年生</button>
+    </div>
+    <div style="height:10px"></div>
+    <button onclick="showStats()">成績を見る</button>
+
+    <div class="sound-panel">
+      <button id="bgmToggle" class="sound-toggle on" onclick="toggleSound('bgm')">🎵 BGM ON</button>
+      <button id="sfxToggle" class="sound-toggle on" onclick="toggleSound('sfx')">🔔 効果音 ON</button>
+      <button id="brushToggle" class="sound-toggle on" onclick="toggleSound('brush')">✍️ 筆音 ON</button>
+    </div>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="card">
+      <div class="topbar">
+        <span id="gradeBadge" class="badge"></span>
+        <span id="questionCount" class="badge"></span>
+        <span id="comboBadge" class="badge">コンボ 0</span>
+        <span id="timerBadge" class="badge timer-badge">⏱ 0秒</span>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="road" id="road"></div>
+    </div>
+
+    <div class="card">
+      <div class="small" style="text-align:center">ひらがなを漢字にしよう</div>
+      <div id="prompt" class="prompt"></div>
+      <div id="meaning" class="meaning"></div>
+      <div id="canvasWrap" class="canvas-wrap"></div>
+      <div class="controls">
+        <button onclick="clearCanvases()">書き直す</button>
+        <button class="warn" onclick="useHint()">ヒント</button>
+        <button class="good" id="judgeBtn" onclick="judgeAnswer()">判定する</button>
+        <button class="primary hidden" id="nextBtn" onclick="nextQuestion()">次へ</button>
+      </div>
+      <div id="feedback" class="feedback"></div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title">🎒 素材</h3>
+      <div class="inventory">
+        <div class="inv">木<b id="wood">0</b></div>
+        <div class="inv">石<b id="stone">0</b></div>
+        <div class="inv">鉄<b id="iron">0</b></div>
+        <div class="inv">宝石<b id="gem">0</b></div>
+      </div>
+      <h3 class="section-title" style="margin-top:16px">🏠 今日の建築</h3>
+      <div class="build" id="buildArea"></div>
+    </div>
+  </section>
+
+  <section id="result" class="card hidden hero">
+    <h2>🏁 ゴール！</h2>
+    <div id="resultText"></div>
+    <div style="height:12px"></div>
+    <button class="primary" onclick="backHome()">トップへ戻る</button>
+  </section>
+
+  <section id="stats" class="card hidden">
+    <h2>📊 成績</h2>
+    <div id="statsContent"></div>
+    <button onclick="backHome()">戻る</button>
+  </section>
+
+  <section class="card">
+    <div class="footer-note">
+      V3.1は、書いた線を端末のブラウザ内でKanjiVGの標準筆順データと比較して判定します。手書き画像そのものを外部へ送信しません。初回判定時のみ標準筆順SVGを取得します。KanjiVG © Ulrich Apel, CC BY-SA 3.0。
+    </div>
+  </section>
+</div>
+
+<script>
+const BANK = {
+  4: [
+    {kana:'きぼう', answer:'希望', meaning:'かなえたいと思うこと'},
+    {kana:'こうえん', answer:'公園', meaning:'みんなが遊べる場所'},
+    {kana:'やくそく', answer:'約束', meaning:'守ると決めたこと'},
+    {kana:'けっか', answer:'結果', meaning:'最後にどうなったか'},
+    {kana:'れきし', answer:'歴史', meaning:'昔から今までの出来事'},
+    {kana:'せいこう', answer:'成功', meaning:'うまくやりとげること'},
+    {kana:'ひつよう', answer:'必要', meaning:'なくてはならないこと'},
+    {kana:'きせつ', answer:'季節', meaning:'春・夏・秋・冬'},
+    {kana:'けしき', answer:'景色', meaning:'目に見えるながめ'},
+    {kana:'えいよう', answer:'栄養', meaning:'体をつくるもと'}
+  ],
+  6: [
+    {kana:'けいけん', answer:'経験', meaning:'実際にやって身につけたこと'},
+    {kana:'かんきょう', answer:'環境', meaning:'まわりのようすや条件'},
+    {kana:'せきにん', answer:'責任', meaning:'引き受けたことを果たすこと'},
+    {kana:'こんなん', answer:'困難', meaning:'とてもむずかしいこと'},
+    {kana:'しせい', answer:'姿勢', meaning:'体や気持ちのかまえ'},
+    {kana:'しょうらい', answer:'将来', meaning:'これから先の未来'},
+    {kana:'ちいき', answer:'地域', meaning:'あるまとまりの土地'},
+    {kana:'けんり', answer:'権利', meaning:'してよいと認められたこと'},
+    {kana:'せんもん', answer:'専門', meaning:'くわしく学んでいる分野'},
+    {kana:'しりょう', answer:'資料', meaning:'考えたり調べたりするための材料'}
+  ]
+};
+
+
+const soundSettings = JSON.parse(localStorage.getItem('kanjiCraftSound') || '{"bgm":true,"sfx":true,"brush":true}');
+let audioCtx=null, masterGain=null, bgmTimer=null, gameStartMs=0, lastBrushAt=0;
+
+function initAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.28;
+    masterGain.connect(audioCtx.destination);
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+function tone(freq,dur=.12,type='sine',gain=.16,when=0){
+  if(!soundSettings.sfx && type!=='bgm') return;
+  initAudio();
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type=type==='bgm'?'triangle':type; o.frequency.value=freq;
+  g.gain.setValueAtTime(.0001,audioCtx.currentTime+when);
+  g.gain.exponentialRampToValueAtTime(gain,audioCtx.currentTime+when+.01);
+  g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+when+dur);
+  o.connect(g);g.connect(masterGain);o.start(audioCtx.currentTime+when);o.stop(audioCtx.currentTime+when+dur+.02);
+}
+function noise(dur=.08,gain=.05){
+  if(!soundSettings.brush) return;
+  initAudio();
+  const len=Math.floor(audioCtx.sampleRate*dur), buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+  const s=audioCtx.createBufferSource(), f=audioCtx.createBiquadFilter(), g=audioCtx.createGain();
+  f.type='bandpass'; f.frequency.value=1800; f.Q.value=.8; g.gain.value=gain;
+  s.buffer=buf; s.connect(f); f.connect(g); g.connect(masterGain); s.start();
+}
+function playBrush(){
+  const now=performance.now(); if(now-lastBrushAt<90) return; lastBrushAt=now; noise(.07,.045);
+}
+function playCorrect(){ if(!soundSettings.sfx)return; tone(660,.09,'sine',.15,0);tone(880,.13,'sine',.14,.08); }
+function playWrong(){ if(!soundSettings.sfx)return; tone(220,.11,'square',.08,0);tone(185,.14,'square',.06,.09); }
+function playCoin(){ if(!soundSettings.sfx)return; tone(1050,.07,'square',.10,0);tone(1450,.10,'sine',.09,.06); }
+function playCombo(n){ if(!soundSettings.sfx)return; const base=520+Math.min(n,8)*55;tone(base,.07,'triangle',.10,0);tone(base*1.25,.09,'triangle',.09,.06); }
+function playMastery(){ if(!soundSettings.sfx)return; [523,659,784,1047].forEach((f,i)=>tone(f,.16,'triangle',.11,i*.08)); }
+function playLevelUp(){ if(!soundSettings.sfx)return; [392,523,659,784,1047].forEach((f,i)=>tone(f,.18,'triangle',.12,i*.09)); }
+function playFinish(){ if(!soundSettings.sfx)return; [523,659,784,1047,1319].forEach((f,i)=>tone(f,.22,'triangle',.13,i*.10)); setTimeout(()=>tone(1047,.45,'sine',.12,0),520); }
+function setSoundButtons(){
+  const m={bgm:'bgmToggle',sfx:'sfxToggle',brush:'brushToggle'};
+  const labels={bgm:'🎵 BGM',sfx:'🔔 効果音',brush:'✍️ 筆音'};
+  Object.keys(m).forEach(k=>{const b=document.getElementById(m[k]);if(b){b.textContent=`${labels[k]} ${soundSettings[k]?'ON':'OFF'}`;b.classList.toggle('on',soundSettings[k]);}});
+}
+function toggleSound(kind){
+  soundSettings[kind]=!soundSettings[kind];
+  localStorage.setItem('kanjiCraftSound',JSON.stringify(soundSettings)); setSoundButtons();
+  initAudio();
+  if(kind==='bgm'){ if(soundSettings.bgm) startBGM(); else stopBGM(); }
+  else if(soundSettings.sfx) playCoin();
+}
+function bgmBeat(){
+  if(!soundSettings.bgm || game.classList.contains('hidden')) return;
+  const elapsed=(performance.now()-gameStartMs)/1000;
+  const tempo=elapsed>=30?240:elapsed>=20?180:132;
+  const step=60/tempo;
+  const notes=elapsed>=30?[262,330,392,440]:elapsed>=20?[262,330,392,330]:[262,294,330,294];
+  let i=0;
+  function seq(){
+    if(!soundSettings.bgm || game.classList.contains('hidden')) return;
+    const e=(performance.now()-gameStartMs)/1000;
+    const t=e>=30?240:e>=20?180:132, s=60/t, ns=e>=30?[262,330,392,440,392,330]:e>=20?[262,330,392,330]:[262,294,330,294];
+    tone(ns[i%ns.length],Math.min(.16,s*.65),'bgm',e>=30?.045:.035,0);
+    if(e>=20 && i%2===1) tone(ns[(i+2)%ns.length]*2,.05,'bgm',.018,0);
+    i++;
+    bgmTimer=setTimeout(seq,s*1000);
+  }
+  clearTimeout(bgmTimer); seq();
+}
+function startBGM(){ stopBGM(); if(!soundSettings.bgm)return; initAudio(); gameStartMs=performance.now(); bgmBeat(); }
+function stopBGM(){ if(bgmTimer){clearTimeout(bgmTimer);bgmTimer=null;} }
+function updateTimer(){
+  if(!game || game.classList.contains('hidden')) return;
+  const sec=Math.floor((performance.now()-gameStartMs)/1000);
+  timerBadge.textContent=`⏱ ${sec}秒`;
+  timerBadge.classList.toggle('urgent',sec>=30);
+  if(sec>=30) timerBadge.textContent=`🔥 ${sec}秒`;
+}
+setInterval(updateTimer,500);
+window.addEventListener('load',setSoundButtons);
+
+const TEMPLATE_CACHE = new Map();
+let state = {};
+
+function freshState(grade){
+  return {grade,q:0,score:0,combo:0,bestCombo:0,wrong:[],questionHints:0,attempts:0,
+    inventory:{wood:0,stone:0,iron:0,gem:0},current:null,canvases:[],drawingMeta:[],deck:shuffle(BANK[grade]).slice(0,10)};
+}
+function shuffle(a){ return [...a].sort(()=>Math.random()-.5); }
+
+function startGame(grade){
+  state=freshState(grade);
+  home.classList.add('hidden'); stats.classList.add('hidden'); result.classList.add('hidden'); game.classList.remove('hidden');
+  gradeBadge.textContent=`小学${grade}年生`; setupRoad(); initAudio(); startBGM(); nextQuestion(true);
+}
+function setupRoad(){ road.innerHTML=''; for(let i=0;i<10;i++) road.appendChild(document.createElement('span')); }
+function updateRoad(){ [...road.children].forEach((e,i)=>e.classList.toggle('done',i<state.q)); }
+
+function nextQuestion(first=false){
+  if(!first) state.q++;
+  if(state.q>=10) return finishGame();
+  state.current=state.deck[state.q]; state.questionHints=0; state.attempts=0;
+  const oldStats=JSON.parse(localStorage.getItem(`kanjiCraftStats${state.grade}`)||'{"wrong":{}}');
+  state.wasWeak=!!(oldStats.wrong && oldStats.wrong[state.current.answer]);
+  questionCount.textContent=`${state.q+1} / 10`; progressBar.style.width=`${state.q*10}%`; comboBadge.textContent=`コンボ ${state.combo}`;
+  document.getElementById('prompt').textContent=state.current.kana; document.getElementById('meaning').textContent=state.current.meaning; document.getElementById('feedback').textContent='';
+  judgeBtn.classList.remove('hidden'); judgeBtn.disabled=false; nextBtn.classList.add('hidden'); renderCanvases(); updateInventory(); updateBuild(); updateRoad();
+  // テンプレートを先読み
+  [...state.current.answer].forEach(ch=>loadKanjiTemplate(ch).catch(()=>{}));
+}
+
+function renderCanvases(){
+  canvasWrap.innerHTML=''; state.canvases=[]; state.drawingMeta=[];
+  [...state.current.answer].forEach((char,idx)=>{
+    const cell=document.createElement('div'); cell.className='kanji-cell';
+    const ghost=document.createElement('div'); ghost.className='ghost'; ghost.textContent=''; ghost.dataset.char=char;
+    const canvas=document.createElement('canvas'); cell.appendChild(ghost); cell.appendChild(canvas); canvasWrap.appendChild(cell);
+    state.drawingMeta.push({strokes:[],current:null}); setupCanvas(canvas,idx); state.canvases.push(canvas);
+  });
+}
+
+function setupCanvas(canvas,idx){
+  let cssW=0, cssH=0;
+  const resize=()=>{
+    const r=canvas.getBoundingClientRect(); cssW=r.width; cssH=r.height; const dpr=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr); const c=canvas.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.lineCap='round'; c.lineJoin='round'; c.lineWidth=8; c.strokeStyle='#111';
+  };
+  requestAnimationFrame(resize);
+  let drawing=false,last=null;
+  const pos=e=>{const r=canvas.getBoundingClientRect(),t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};};
+  const start=e=>{e.preventDefault(); drawing=true; last=pos(e); playBrush(); const st=[last]; state.drawingMeta[idx].strokes.push(st); state.drawingMeta[idx].current=st;};
+  const move=e=>{if(!drawing)return;e.preventDefault();const p=pos(e),c=canvas.getContext('2d');c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();state.drawingMeta[idx].current.push(p);last=p;};
+  const end=e=>{if(drawing){e&&e.preventDefault();drawing=false;state.drawingMeta[idx].current=null;}};
+  canvas.addEventListener('touchstart',start,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',end,{passive:false});
+  canvas.addEventListener('mousedown',start);canvas.addEventListener('mousemove',move);window.addEventListener('mouseup',end);
+}
+
+function clearCanvases(){ renderCanvases(); feedback.textContent=''; judgeBtn.disabled=false; }
+function useHint(){
+  state.questionHints++;
+  const ghosts=[...document.querySelectorAll('.ghost')], level=Math.min(2,state.questionHints);
+  ghosts.forEach((g,i)=>{g.textContent=(level===1?i===0:true)?g.dataset.char:'';});
+  feedback.textContent=level===1?'ヒント：最初の漢字だけ薄く表示！':'ヒント：全部うすく表示。なぞって覚えよう！';
+}
+
+async function loadKanjiTemplate(ch){
+  if(TEMPLATE_CACHE.has(ch)) return TEMPLATE_CACHE.get(ch);
+  const hex=ch.codePointAt(0).toString(16).padStart(5,'0');
+  const urls=[
+    `https://cdn.jsdelivr.net/gh/KanjiVG/kanjivg@master/kanji/${hex}.svg`,
+    `https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/${hex}.svg`
+  ];
+  let text=null,err=null;
+  for(const url of urls){try{const r=await fetch(url,{cache:'force-cache'});if(r.ok){text=await r.text();break;}}catch(e){err=e;}}
+  if(!text) throw err||new Error('筆順データを取得できません');
+  const doc=new DOMParser().parseFromString(text,'image/svg+xml');
+  const paths=[...doc.querySelectorAll('path')].filter(p=>/-s\d+$/.test(p.id||''));
+  if(!paths.length) throw new Error('筆順データなし');
+  const holder=document.createElementNS('http://www.w3.org/2000/svg','svg'); holder.setAttribute('viewBox','0 0 109 109'); holder.style.position='fixed';holder.style.left='-10000px';holder.style.width='109px';holder.style.height='109px';document.body.appendChild(holder);
+  const strokes=[];
+  for(const src of paths){
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',src.getAttribute('d'));holder.appendChild(p);
+    const len=p.getTotalLength(), pts=[]; const n=Math.max(16,Math.min(40,Math.round(len/3)));
+    for(let i=0;i<n;i++){const q=p.getPointAtLength(len*i/(n-1));pts.push({x:q.x/109,y:q.y/109});}
+    strokes.push(pts); holder.removeChild(p);
+  }
+  holder.remove(); TEMPLATE_CACHE.set(ch,strokes); return strokes;
+}
+
+function polyLength(pts){let l=0;for(let i=1;i<pts.length;i++)l+=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);return l;}
+function resample(pts,n=24){
+  if(!pts||pts.length<2)return pts||[]; const total=polyLength(pts); if(total<1e-6)return Array(n).fill(pts[0]);
+  const out=[pts[0]], step=total/(n-1); let target=step,acc=0;
+  for(let i=1;i<pts.length&&out.length<n-1;i++){
+    const a=pts[i-1],b=pts[i],seg=Math.hypot(b.x-a.x,b.y-a.y);
+    while(seg>0 && acc+seg>=target && out.length<n-1){const t=(target-acc)/seg;out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});target+=step;}
+    acc+=seg;
+  }
+  out.push(pts[pts.length-1]); while(out.length<n)out.splice(out.length-1,0,out[out.length-2]); return out.slice(0,n);
+}
+function bounds(strokes){const all=strokes.flat();const xs=all.map(p=>p.x),ys=all.map(p=>p.y);return{minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};}
+function normalizeUser(strokes,canvas){
+  const r=canvas.getBoundingClientRect(); let ss=strokes.filter(s=>s.length>=2).map(s=>s.map(p=>({x:p.x/r.width,y:p.y/r.height})));
+  if(!ss.length)return ss; const b=bounds(ss),w=Math.max(.08,b.maxX-b.minX),h=Math.max(.08,b.maxY-b.minY);
+  // expected kanji typically sits within roughly 8%-92%; fit while preserving aspect ratio and center
+  const scale=Math.min(.84/w,.84/h),cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2;
+  return ss.map(s=>s.map(p=>({x:(p.x-cx)*scale+.5,y:(p.y-cy)*scale+.5})));
+}
+function normalizeExpected(strokes){
+  const b=bounds(strokes),w=b.maxX-b.minX,h=b.maxY-b.minY,scale=Math.min(.84/w,.84/h),cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2;
+  return strokes.map(s=>s.map(p=>({x:(p.x-cx)*scale+.5,y:(p.y-cy)*scale+.5})));
+}
+function angle(a,b){return Math.atan2(b.y-a.y,b.x-a.x);}
+function angleDiff(a,b){let d=Math.abs(a-b);while(d>Math.PI)d=Math.abs(d-2*Math.PI);return d/Math.PI;}
+function scoreStroke(u,e){
+  const U=resample(u,24),E=resample(e,24); if(U.length<2||E.length<2)return 0;
+  let d=0;for(let i=0;i<24;i++)d+=Math.hypot(U[i].x-E[i].x,U[i].y-E[i].y);d/=24;
+  const end=(Math.hypot(U[0].x-E[0].x,U[0].y-E[0].y)+Math.hypot(U[23].x-E[23].x,U[23].y-E[23].y))/2;
+  const dir=angleDiff(angle(U[0],U[23]),angle(E[0],E[23]));
+  const lu=polyLength(U),le=polyLength(E),lr=Math.min(1,Math.abs(Math.log((lu+.01)/(le+.01)))/1.0);
+  const err=.56*d+.20*end+.14*dir+.10*lr; return Math.max(0,Math.min(100,100*(1-err/0.38)));
+}
+function compareKanji(userRaw,expectedRaw,canvas){
+  const u=normalizeUser(userRaw,canvas),e=normalizeExpected(expectedRaw); const ec=e.length,uc=u.length;
+  if(uc===0)return{score:0,reason:'まだ書かれていません'};
+  if(Math.abs(uc-ec)>=2)return{score:Math.max(0,48-12*Math.abs(uc-ec)),reason:`画数を確認（お手本 ${ec}画 / 今 ${uc}画）`};
+  const n=Math.min(uc,ec); let sum=0; for(let i=0;i<n;i++)sum+=scoreStroke(u[i],e[i]); let score=sum/n;
+  if(uc!==ec)score-=14*Math.abs(uc-ec);
+  const ub=bounds(u),eb=bounds(e),arU=(ub.maxX-ub.minX)/(ub.maxY-ub.minY+.001),arE=(eb.maxX-eb.minX)/(eb.maxY-eb.minY+.001);
+  score-=Math.min(12,Math.abs(Math.log((arU+.01)/(arE+.01)))*12);
+  score=Math.max(0,Math.min(100,score));
+  let reason=score>=72?'形・画数・書き順 OK':score>=58?'かなり近い。形か書き順を少し直そう':'形・画数・書き順を見直そう';
+  return{score:Math.round(score),reason};
+}
+
+async function judgeAnswer(){
+  judgeBtn.disabled=true; feedback.textContent='🔎 ブラウザ内で筆順と形を判定中…'; state.attempts++;
+  try{
+    const chars=[...state.current.answer], results=[];
+    for(let i=0;i<chars.length;i++){const t=await loadKanjiTemplate(chars[i]);results.push(compareKanji(state.drawingMeta[i].strokes,t,state.canvases[i]));}
+    const min=Math.min(...results.map(r=>r.score)),avg=Math.round(results.reduce((a,r)=>a+r.score,0)/results.length);
+    // 各文字70点以上、平均74点以上。ヒント使用時は合格しても学習スコアを少し厳しくする
+    const threshold=state.questionHints?75:70; const correct=results.every(r=>r.score>=threshold)&&avg>=74;
+    if(correct){
+      state.score++;state.combo++;state.bestCombo=Math.max(state.bestCombo,state.combo); playCorrect();
+      const reward=state.combo>=5?'gem':state.combo>=3?'iron':(state.q%2===0?'wood':'stone');state.inventory[reward]++;
+      const names={wood:'木',stone:'石',iron:'鉄',gem:'宝石'};
+      playCoin(); if(state.combo>=3) playCombo(state.combo); if(state.wasWeak && state.questionHints===0) setTimeout(playMastery,180); if(state.combo===5) setTimeout(playLevelUp,260);
+      feedback.innerHTML=`✅ 正解！ 判定 ${results.map((r,i)=>`${i+1}文字目 ${r.score}点`).join(' / ')}<br><span style="color:#1f9d55">${names[reward]}を1個ゲット</span>`;
+      judgeBtn.classList.add('hidden');nextBtn.classList.remove('hidden');
+    }else{
+      state.combo=0; playWrong(); if(!state.wrong.includes(state.current.answer)) state.wrong.push(state.current.answer);
+      const detail=results.map((r,i)=>`${i+1}文字目：${r.score}点（${r.reason}）`).join('<br>');
+      feedback.innerHTML=`❌ まだクリアではありません<br><span class="small">${detail}</span><br><span class="small">「書き直す」で再挑戦できます。答えはまだ表示しません。</span>`;
+      judgeBtn.disabled=false;
+      if(state.attempts>=2) feedback.innerHTML+=`<br><span class="small">難しかったら「ヒント」を使ってOK！</span>`;
+    }
+    comboBadge.textContent=`コンボ ${state.combo}`;updateInventory();updateBuild();
+  }catch(e){
+    console.error(e); feedback.innerHTML='⚠️ 筆順データを読み込めませんでした。Wi‑Fi接続を確認して、もう一度「判定する」を押してください。<br><span class="small">判定できない場合は正解扱いにはしません。</span>';judgeBtn.disabled=false;
+  }
+}
+
+function updateInventory(){['wood','stone','iron','gem'].forEach(k=>document.getElementById(k).textContent=state.inventory[k]);}
+function updateBuild(){const a=buildArea;a.innerHTML='';['wood','stone','iron','gem'].forEach(k=>{for(let i=0;i<state.inventory[k];i++){const b=document.createElement('span');b.className=`block ${k}`;a.appendChild(b);}});if(!a.children.length)a.innerHTML='<span class="small">正解するとここに建物の材料が増えるよ</span>';}
+function finishGame(){stopBGM(); playFinish(); game.classList.add('hidden');result.classList.remove('hidden');progressBar.style.width='100%';const uniq=[...new Set(state.wrong)];resultText.innerHTML=`<p style="font-size:24px;font-weight:800">${state.score} / 10 正解</p><p>最高コンボ：${state.bestCombo}</p><p>今回クリアできなかった問題：${uniq.join('・')||'なし！'}</p>`;saveStats();}
+function saveStats(){const key=`kanjiCraftStats${state.grade}`,old=JSON.parse(localStorage.getItem(key)||'{"plays":0,"total":0,"best":0,"wrong":{}}');old.plays++;old.total+=state.score;old.best=Math.max(old.best,state.bestCombo);state.wrong.forEach(k=>old.wrong[k]=(old.wrong[k]||0)+1);localStorage.setItem(key,JSON.stringify(old));}
+function showStats(){home.classList.add('hidden');stats.classList.remove('hidden');let html='';[4,6].forEach(g=>{const s=JSON.parse(localStorage.getItem(`kanjiCraftStats${g}`)||'{"plays":0,"total":0,"best":0,"wrong":{}}'),avg=s.plays?Math.round(s.total/s.plays*10)/10:0,wrong=Object.entries(s.wrong).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}(${v})`).join('・')||'まだなし';html+=`<div class="card"><h3>小学${g}年生</h3><div class="stats-grid"><div class="stat">プレイ回数<b>${s.plays}</b></div><div class="stat">平均正解<b>${avg}/10</b></div><div class="stat">最高コンボ<b>${s.best}</b></div><div class="stat">苦手TOP<b style="font-size:14px">${wrong}</b></div></div></div>`;});statsContent.innerHTML=html;}
+function backHome(){stopBGM();game.classList.add('hidden');result.classList.add('hidden');stats.classList.add('hidden');home.classList.remove('hidden');setSoundButtons();}
+</script>
+</body>
+</html>
